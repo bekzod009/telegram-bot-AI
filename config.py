@@ -1,7 +1,6 @@
 # === bot.py (PRO versiya) ===
 import telebot
 from telebot import types
-from config import TOKEN, PRICING, ADMIN_ID
 from payments import send_payment_info, auto_confirm_payment
 from user_data import get_balance, update_balance, add_order, get_user_orders
 from pdf_generator import create_pdf
