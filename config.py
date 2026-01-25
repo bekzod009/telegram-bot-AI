@@ -179,8 +179,6 @@ Bekzod, [20.01.2026 1:14]
 # === config.py (FINAL PRO EDITION) ===
 
 # Telegram bot tokeningiz
-TOKEN = "8321742240:AAHFwAQEYpZNReK_GrGIY_wx4K4bz5XqWOE"
-
 # Admin ID — bu sizning Telegram ID raqamingiz
 ADMIN_ID = 123456789  # <-- bu yerga o‘zingizning Telegram ID raqamingizni yozing
 
