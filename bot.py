@@ -1,131 +1,197 @@
+Bekzod, [01.02.2026 0:35]
 import os
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 
-# =========================
-# TOKEN (ENV)
-# =========================
+# ================== CONFIG ==================
 TOKEN = os.getenv("BOT_TOKEN")
-
 if not TOKEN:
-    raise RuntimeError(
-        "❌ BOT_TOKEN topilmadi. Render → Environment Variables ni tekshir."
-    )
+    raise RuntimeError("BOT_TOKEN topilmadi")
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# =========================
-# MAIN MENU
-# =========================
+# ================== CONSTANTS ==================
+SERVICES = {
+    "presentation": "📕 Taqdimot",
+    "referat": "📘 Referat / Mustaqil ish",
+    "essay": "✍️ Esse",
+    "course": "📚 Kurs ishi",
+    "bmi": "🎓 BMI"
+}
+
+LANGUAGES = ["🇺🇿 O‘zbek", "🇷🇺 Русский", "🇬🇧 English"]
+
+PRICES = {
+    "presentation": 5000,
+    "referat": 7000,
+    "essay": 6000,
+    "course": 15000,
+    "bmi": 20000
+}
+
+# ================== USER STATE (FSM) ==================
+STATE_NONE = "none"
+STATE_TOPIC = "topic"
+STATE_SIZE = "size"
+STATE_LANGUAGE = "language"
+
+user_state = {}
+user_data = {}
+
+def reset_user(user_id):
+    user_state[user_id] = STATE_NONE
+    user_data[user_id] = {
+        "service": None,
+        "topic": None,
+        "size": None,
+        "language": None
+    }
+
+# ================== KEYBOARDS ==================
 def main_menu():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.row("📕 Taqdimot", "📘 Referat / Mustaqil ish")
+    kb.row("✍️ Esse", "📚 Kurs ishi", "🎓 BMI")
+    kb.row("👑 VIP", "💰 Balans", "🎁 Referal")
+    kb.row("⚙️ Sozlamalar")
+    return kb
 
-    markup.row(
-        KeyboardButton("📑 Taqdimot"),
-        KeyboardButton("📄 Referat")
-    )
+def back_kb():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add("⬅️ Ortga")
+    return kb
 
-    markup.row(
-        KeyboardButton("📝 Mustaqil ish"),
-        KeyboardButton("🎓 Kurs ishi")
-    )
+def size_kb():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.row("5", "10", "15")
+    kb.row("20", "30")
+    kb.add("⬅️ Ortga")
+    return kb
 
-    markup.row(
-        KeyboardButton("💰 Balans"),
-        KeyboardButton("📜 Buyurtmalar tarixi")
-    )
+def language_kb():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    for l in LANGUAGES:
+        kb.add(l)
+    kb.add("⬅️ Ortga")
+    return kb
 
-    return markup
-
-# =========================
-# /START
-# =========================
+# ================== START ==================
 @bot.message_handler(commands=["start"])
-def start_handler(message):
-    text = (
-        "🚀 <b>Talabalar uchun AI yordamchi</b>\n\n"
-        "Vaqtingizni tejang — ishni biz qilamiz.\n\n"
-        "📑 Taqdimot\n"
-        "📄 Referat\n"
-        "📝 Mustaqil ish\n"
-        "🎓 Kurs ishi\n\n"
-        "Buyurtma berish uchun pastdagi menyudan tanlang 👇"
-    )
+def start(message):
+    user_id = message.from_user.id
+    reset_user(user_id)
 
     bot.send_message(
         message.chat.id,
-        text,
+        "👋 <b>Xush kelibsiz!</b>\n\n"
+        "Biz AI yordamida <b>taqdimot, referat, esse, kurs ishi va BMI</b> tayyorlaymiz.\n\n"
+        "👇 Kerakli xizmatni tanlang:",
         reply_markup=main_menu()
     )
 
-# =========================
-# MENU HANDLERS
-# =========================
-@bot.message_handler(func=lambda m: m.text == "📑 Taqdimot")
-def presentation(message):
+# ================== SERVICE SELECTION ==================
+@bot.message_handler(func=lambda m: m.text in SERVICES.values())
+def select_service(message):
+    user_id = message.from_user.id
+
+    for key, name in SERVICES.items():
+        if message.text == name:
+            user_data[user_id]["service"] = key
+            break
+
+    user_state[user_id] = STATE_TOPIC
+
     bot.send_message(
         message.chat.id,
-        "📑 <b>Taqdimot</b>\n\n"
-        "Slayd tayyorlash xizmati.\n"
-        "Tez orada buyurtma berish mumkin bo‘ladi."
+        f"📌 <b>{message.text}</b>\n\n"
+        "Mavzuni to‘liq va aniq yozing:",
+        reply_markup=back_kb()
     )
 
-@bot.message_handler(func=lambda m: m.text == "📄 Referat")
-def referat(message):
+# ================== TOPIC ==================
+@bot.message_handler(func=lambda m: user_state.get(m.from_user.id) == STATE_TOPIC)
+def get_topic(message):
+    user_id = message.from_user.id
+
+    if message.text == "⬅️ Ortga":
+        start(message)
+        return
+
+    user_data[user_id]["topic"] = message.text
+    user_state[user_id] = STATE_SIZE
+
     bot.send_message(
         message.chat.id,
-        "📄 <b>Referat</b>\n\n"
-        "Referat va ilmiy ishlar tayyorlash xizmati.\n"
-        "Tez orada buyurtma berish mumkin bo‘ladi."
+        "📄 Ish hajmini tanlang (bet/slayd):",
+        reply_markup=size_kb()
     )
 
-@bot.message_handler(func=lambda m: m.text == "📝 Mustaqil ish")
-def mustaqil_ish(message):
+# ================== SIZE ==================
+@bot.message_handler(func=lambda m: user_state.get(m.from_user.id) == STATE_SIZE)
+def get_size(message):
+    user_id = message.from_user.id
+
+    if message.text == "⬅️ Ortga":
+        user_state[user_id] = STATE_TOPIC
+        bot.send_message(message.chat.id, "📌 Mavzuni qayta yozing:", reply_markup=back_kb())
+        return
+
+    if not message.text.isdigit():
+        bot.send_message(message.chat.id, "❗ Iltimos, faqat raqam tanlang.", reply_markup=size_kb())
+        return
+
+    user_data[user_id]["size"] = int(message.text)
+    user_state[user_id] = STATE_LANGUAGE
+
     bot.send_message(
         message.chat.id,
-        "📝 <b>Mustaqil ish</b>\n\n"
-        "Mustaqil ishlar tayyorlash xizmati.\n"
-        "Tez orada buyurtma berish mumkin bo‘ladi."
+        "🌐 Qaysi tilda tayyorlaymiz?",
+        reply_markup=language_kb()
     )
 
-@bot.message_handler(func=lambda m: m.text == "🎓 Kurs ishi")
-def kurs_ishi(message):
+Bekzod, [01.02.2026 0:35]
+# ================== LANGUAGE ==================
+@bot.message_handler(func=lambda m: user_state.get(m.from_user.id) == STATE_LANGUAGE)
+def get_language(message):
+    user_id = message.from_user.id
+
+    if message.text == "⬅️ Ortga":
+        user_state[user_id] = STATE_SIZE
+        bot.send_message(message.chat.id, "📄 Hajmni tanlang:", reply_markup=size_kb())
+        return
+
+    if message.text not in LANGUAGES:
+        bot.send_message(message.chat.id, "❗ Tilni tugmalar orqali tanlang.", reply_markup=language_kb())
+        return
+
+    user_data[user_id]["language"] = message.text
+    service = user_data[user_id]["service"]
+    price = PRICES[service]
+
     bot.send_message(
         message.chat.id,
-        "🎓 <b>Kurs ishi</b>\n\n"
-        "Kurs ishi buyurtma qilish xizmati.\n"
-        "Tez orada buyurtma berish mumkin bo‘ladi."
+        "✅ <b>Buyurtma qabul qilindi</b>\n\n"
+        f"📌 Xizmat: {SERVICES[service]}\n"
+        f"📝 Mavzu: {user_data[user_id]['topic']}\n"
+        f"📄 Hajm: {user_data[user_id]['size']}\n"
+        f"🌐 Til: {user_data[user_id]['language']}\n\n"
+        f"💰 Narx: <b>{price} so‘m</b>\n\n"
+        "Keyingi bosqichda to‘lov va fayl avtomatik yaratiladi.",
+        reply_markup=main_menu()
     )
 
-@bot.message_handler(func=lambda m: m.text == "💰 Balans")
-def balance(message):
+    reset_user(user_id)
+
+# ================== OTHER ==================
+@bot.message_handler(func=lambda m: m.text in ["👑 VIP", "💰 Balans", "🎁 Referal", "⚙️ Sozlamalar"])
+def other(message):
     bot.send_message(
         message.chat.id,
-        "💰 <b>Balans</b>\n\n"
-        "Balansingiz: 0 so‘m\n"
-        "To‘lov funksiyasi tez orada qo‘shiladi."
+        "🔧 Ushbu bo‘lim hozir ishlab chiqilmoqda.\n"
+        "Asosiy xizmatlar to‘liq ishlayapti.",
+        reply_markup=main_menu()
     )
 
-@bot.message_handler(func=lambda m: m.text == "📜 Buyurtmalar tarixi")
-def history(message):
-    bot.send_message(
-        message.chat.id,
-        "📜 <b>Buyurtmalar tarixi</b>\n\n"
-        "Hozircha buyurtmalar mavjud emas."
-    )
-
-# =========================
-# /PING
-# =========================
-@bot.message_handler(commands=["ping"])
-def ping(message):
-    bot.send_message(message.chat.id, "✅ Bot ishlayapti")
-
-# =========================
-# UNKNOWN MESSAGE
-# =========================
-@bot.message_handler(func=lambda m: True)
-def unknown(message):
-    bot.send_message(
-        message.chat.id,
-        "⚠️ Buyruq tushunilmadi.\n/start ni bosing."
+# ================== RUN ==================
+print("Bot started (PRO)")
+bot.infinity_polling()
