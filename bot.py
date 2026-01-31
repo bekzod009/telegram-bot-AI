@@ -1,99 +1,69 @@
-import os
-import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+# ===== DESIGN =====
+    if state == WAIT_DESIGN:
+        user_data[uid]["design"] = text
+        user_data[uid]["state"] = WAIT_SIZE
 
-# ================== TOKEN ==================
-TOKEN = os.getenv("BOT_TOKEN")
-if not TOKEN:
-    raise RuntimeError("BOT_TOKEN topilmadi. Render -> Environment Variables ni tekshir.")
+        bot.send_message(
+            message.chat.id,
+            "📐 <b>Slaydlar sonini yozing</b>:"
+        )
+        return
 
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+    # ===== SIZE =====
+    if state == WAIT_SIZE:
+        if not text.isdigit():
+            bot.send_message(message.chat.id, "❗ Faqat raqam kiriting.")
+            return
 
-# ================== MAIN MENU ==================
-def main_menu():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.row(
-        KeyboardButton("📘 Taqdimot"),
-        KeyboardButton("📚 Referat / Mustaqil ish")
-    )
-    kb.row(
-        KeyboardButton("💰 Balans"),
-        KeyboardButton("🎁 Referal")
-    )
-    kb.row(
-        KeyboardButton("👑 VIP Status"),
-        KeyboardButton("ℹ️ Qo'llanma")
-    )
-    return kb
+        size = int(text)
+        user_data[uid]["size"] = size
 
-# ================== START ==================
-@bot.message_handler(commands=["start"])
-def start(message):
+        base_price = size * 5000
+        if user_data[uid]["premium"]:
+            base_price = int(base_price * 1.5)
+
+        user_data[uid]["state"] = WAIT_PREVIEW
+
+        kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        kb.add("✏️ Tahrirlash", "✅ Tasdiqlash va PDF")
+
+        bot.send_message(
+            message.chat.id,
+            f"🧾 <b>Buyurtma preview</b>\n\n"
+            f"📌 Xizmat: {user_data[uid]['service']}\n"
+            f"✍️ Mavzu: {user_data[uid]['topic']}\n"
+            f"📐 Hajm: {size}\n"
+            f"⭐ Premium: {'Yoqilgan' if user_data[uid]['premium'] else 'O‘chiq'}\n"
+            f"💰 Narx: {base_price:,} so‘m\n\n"
+            "📄 Avval matn beriladi, keyin PDF.",
+            reply_markup=kb
+        )
+        return
+
+    # ===== PREVIEW =====
+    if state == WAIT_PREVIEW:
+        if text == "✏️ Tahrirlash":
+            user_data[uid]["state"] = WAIT_TOPIC
+            bot.send_message(
+                message.chat.id,
+                "✍️ Qaysi joyini o‘zgartiramiz? Yozing:"
+            )
+            return
+
+        if text == "✅ Tasdiqlash va PDF":
+            bot.send_message(
+                message.chat.id,
+                "📄 PDF tayyorlanmoqda...\n"
+                "⏳ Iltimos, kuting."
+            )
+            return
+
     bot.send_message(
         message.chat.id,
-        "👋 <b>Xush kelibsiz!</b>\n\n"
-        "Bu bot orqali:\n"
-        "📘 Taqdimot\n"
-        "📚 Referat / Mustaqil ish\n"
-        "🧠 AI xizmatlardan foydalanishingiz mumkin.",
-        reply_markup=main_menu()
+        "ℹ️ Iltimos, menyu orqali davom eting."
     )
 
-# ================== SERVICES ==================
-@bot.message_handler(func=lambda m: m.text == "📘 Taqdimot")
-def taqdimot(message):
-    bot.send_message(
-        message.chat.id,
-        "📘 <b>Taqdimot xizmati</b>\n\n"
-        "Mavzuni yozing, keyingi bosqichlarda hajm va til tanlanadi.",
-        reply_markup=main_menu()
-    )
-
-@bot.message_handler(func=lambda m: m.text == "📚 Referat / Mustaqil ish")
-def referat(message):
-    bot.send_message(
-        message.chat.id,
-        "📚 <b>Referat / Mustaqil ish</b>\n\n"
-        "Mavzuni to‘liq va aniq yozib yuboring.",
-        reply_markup=main_menu()
-    )
-
-# ================== OTHER ==================
-@bot.message_handler(func=lambda m: m.text == "💰 Balans")
-def balans(message):
-    bot.send_message(
-        message.chat.id,
-        "💰 <b>Balans</b>\n\nHozircha test rejimida.",
-        reply_markup=main_menu()
-    )
-
-@bot.message_handler(func=lambda m: m.text == "🎁 Referal")
-def referal(message):
-    bot.send_message(
-        message.chat.id,
-        "🎁 <b>Referal tizimi</b>\n\nTez orada faollashtiriladi.",
-        reply_markup=main_menu()
-    )
-
-@bot.message_handler(func=lambda m: m.text == "👑 VIP Status")
-def vip(message):
-    bot.send_message(
-        message.chat.id,
-        "👑 <b>VIP Status</b>\n\nCheksiz foydalanish tez orada.",
-        reply_markup=main_menu()
-    )
-
-@bot.message_handler(func=lambda m: m.text == "ℹ️ Qo'llanma")
-def help_menu(message):
-    bot.send_message(
-        message.chat.id,
-        "ℹ️ <b>Qo‘llanma</b>\n\n"
-        "1️⃣ Xizmat tanlang\n"
-        "2️⃣ Mavzuni yozing\n"
-        "3️⃣ Natijani oling",
-        reply_markup=main_menu()
-    )
-
-# ================== RUN ==================
-print("Bot started (PRO)")
+# =====================
+# RUN
+# =====================
 bot.infinity_polling(skip_pending=True)
