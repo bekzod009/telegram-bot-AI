@@ -147,3 +147,72 @@ def other(message):
 # ================== RUN ==================
 print("Bot started (SLAYD DEMO)")
 bot.infinity_polling()
+
+Bekzod, [01.02.2026 1:42]
+import os
+import telebot
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+
+# ================= TOKEN =================
+TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise RuntimeError("BOT_TOKEN topilmadi. Render Environment Variables ni tekshir.")
+
+bot = telebot.TeleBot(TOKEN)
+
+# ================= MENU =================
+def main_menu():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(KeyboardButton("📊 Slayd"))
+    kb.add(KeyboardButton("📘 Referat"))
+    kb.add(KeyboardButton("ℹ️ Yordam"))
+    return kb
+
+# ================= START =================
+@bot.message_handler(commands=["start"])
+def start(message):
+    bot.send_message(
+        message.chat.id,
+        "Assalomu alaykum 👋\n\nXizmatni tanlang:",
+        reply_markup=main_menu()
+    )
+
+# ================= SLAYD =================
+@bot.message_handler(func=lambda m: m.text == "📊 Slayd")
+def slide(message):
+    bot.send_message(
+        message.chat.id,
+        "📊 Slayd xizmati tanlandi.\n\nMavzuni yozing:"
+    )
+
+# ================= REFERAT =================
+@bot.message_handler(func=lambda m: m.text == "📘 Referat")
+def referat(message):
+    bot.send_message(
+        message.chat.id,
+        "📘 Referat xizmati tanlandi.\n\nMavzuni yozing:"
+    )
+
+# ================= YORDAM =================
+@bot.message_handler(func=lambda m: m.text == "ℹ️ Yordam")
+def help_menu(message):
+    bot.send_message(
+        message.chat.id,
+        "ℹ️ Yordam\n\n"
+        "1️⃣ Xizmatni tanlang\n"
+        "2️⃣ Mavzuni yozing\n"
+        "3️⃣ Natijani oling"
+    )
+
+# ================= DEFAULT =================
+@bot.message_handler(func=lambda m: True)
+def other(message):
+    bot.send_message(
+        message.chat.id,
+        "Iltimos, menyudan foydalaning 👇",
+        reply_markup=main_menu()
+    )
+
+# ================= RUN =================
+print("Bot ishga tushdi")
+bot.infinity_polling()
