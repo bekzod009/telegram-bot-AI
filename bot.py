@@ -140,7 +140,23 @@ def settings(message):
         reply_markup=main_menu()
     )
 
+# ================== TOPIC HANDLER ==================
+@bot.message_handler(func=lambda m: True)
+def handle_topic(message):
+    text = message.text.strip()
 
+    bot.send_message(
+        message.chat.id,
+        "✅ <b>Mavzu qabul qilindi!</b>\n\n"
+        f"📌 <b>Mavzu:</b> {text}\n\n"
+        "Keyingi bosqichlarda:\n"
+        "• hajm\n"
+        "• til\n"
+        "• format (PDF / matn)\n"
+        "tanlanadi.\n\n"
+        "⏳ Davom etamiz...",
+        reply_markup=main_menu()
+    )
 # ================== RUN ==================
 print("Bot started successfully")
 bot.infinity_polling()
