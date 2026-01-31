@@ -1,69 +1,149 @@
-# ===== DESIGN =====
-    if state == WAIT_DESIGN:
-        user_data[uid]["design"] = text
-        user_data[uid]["state"] = WAIT_SIZE
+Bekzod, [01.02.2026 1:32]
+import os
+import telebot
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 
-        bot.send_message(
-            message.chat.id,
-            "📐 <b>Slaydlar sonini yozing</b>:"
-        )
-        return
+# ================== TOKEN ==================
+TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("BOT_TOKEN topilmadi (Environment Variables ni tekshir)")
 
-    # ===== SIZE =====
-    if state == WAIT_SIZE:
-        if not text.isdigit():
-            bot.send_message(message.chat.id, "❗ Faqat raqam kiriting.")
-            return
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-        size = int(text)
-        user_data[uid]["size"] = size
+# ================== USER STATE ==================
+user_state = {}
+user_data = {}
 
-        base_price = size * 5000
-        if user_data[uid]["premium"]:
-            base_price = int(base_price * 1.5)
+WAIT_SLIDE_TOPIC = "wait_slide_topic"
+WAIT_DEMO_CONFIRM = "wait_demo_confirm"
 
-        user_data[uid]["state"] = WAIT_PREVIEW
+# ================== KEYBOARDS ==================
+def main_menu():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(
+        KeyboardButton("📊 Slayd yaratish"),
+        KeyboardButton("📚 Referat / Mustaqil ish")
+    )
+    kb.add(
+        KeyboardButton("ℹ️ Qo'llanma"),
+        KeyboardButton("⚙️ Sozlamalar")
+    )
+    return kb
 
-        kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        kb.add("✏️ Tahrirlash", "✅ Tasdiqlash va PDF")
 
-        bot.send_message(
-            message.chat.id,
-            f"🧾 <b>Buyurtma preview</b>\n\n"
-            f"📌 Xizmat: {user_data[uid]['service']}\n"
-            f"✍️ Mavzu: {user_data[uid]['topic']}\n"
-            f"📐 Hajm: {size}\n"
-            f"⭐ Premium: {'Yoqilgan' if user_data[uid]['premium'] else 'O‘chiq'}\n"
-            f"💰 Narx: {base_price:,} so‘m\n\n"
-            "📄 Avval matn beriladi, keyin PDF.",
-            reply_markup=kb
-        )
-        return
+def confirm_menu():
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add(
+        KeyboardButton("✅ Tasdiqlash"),
+        KeyboardButton("✏️ Tahrirlash"),
+        KeyboardButton("❌ Bekor qilish")
+    )
+    return kb
 
-    # ===== PREVIEW =====
-    if state == WAIT_PREVIEW:
-        if text == "✏️ Tahrirlash":
-            user_data[uid]["state"] = WAIT_TOPIC
-            bot.send_message(
-                message.chat.id,
-                "✍️ Qaysi joyini o‘zgartiramiz? Yozing:"
-            )
-            return
-
-        if text == "✅ Tasdiqlash va PDF":
-            bot.send_message(
-                message.chat.id,
-                "📄 PDF tayyorlanmoqda...\n"
-                "⏳ Iltimos, kuting."
-            )
-            return
+# ================== START ==================
+@bot.message_handler(commands=["start"])
+def start(message):
+    user_id = message.chat.id
+    user_state[user_id] = None
+    user_data[user_id] = {}
 
     bot.send_message(
-        message.chat.id,
-        "ℹ️ Iltimos, menyu orqali davom eting."
+        user_id,
+        "👋 <b>Assalomu alaykum!</b>\n\n"
+        "Bu bot orqali slayd, referat va boshqa ishlarni tayyorlashingiz mumkin.\n\n"
+        "Boshlash uchun xizmat tanlang 👇",
+        reply_markup=main_menu()
     )
 
-# =====================
-# RUN
-# =====================
-bot.infinity_polling(skip_pending=True)
+# ================== SLAYD ==================
+@bot.message_handler(func=lambda m: m.text == "📊 Slayd yaratish")
+def slide_start(message):
+    user_id = message.chat.id
+    user_state[user_id] = WAIT_SLIDE_TOPIC
+
+    bot.send_message(
+        user_id,
+        "📊 <b>Slayd xizmati</b>\n\n"
+        "Iltimos, <b>mavzuni to‘liq va aniq</b> yozing:",
+        reply_markup=telebot.types.ReplyKeyboardRemove()
+    )
+
+# ================== SLAYD TOPIC ==================
+@bot.message_handler(func=lambda m: user_state.get(m.chat.id) == WAIT_SLIDE_TOPIC)
+def slide_topic(message):
+    user_id = message.chat.id
+    topic = message.text.strip()
+
+    if len(topic) < 5:
+        bot.send_message(user_id, "❗️ Mavzu juda qisqa. Iltimos, aniqroq yozing.")
+        return
+
+    user_data[user_id]["topic"] = topic
+    user_state[user_id] = WAIT_DEMO_CONFIRM
+
+    # ===== DEMO MATN (BEPUL) =====
+    demo_text = (
+        f"✅ <b>DEMO SLAYD MATNI</b>\n\n"
+        f"📌 <b>Mavzu:</b> {topic}\n\n"
+        "1️⃣ Kirish\n"
+        f"{topic} mavzusining dolzarbligi va ahamiyati.\n\n"
+        "2️⃣ Asosiy qism\n"
+        "Mavzu bo‘yicha asosiy tushunchalar va tahlil.\n\n"
+        "3️⃣ Xulosa\n"
+        "Asosiy natijalar va umumiy xulosalar.\n\n"
+        "ℹ️ Bu faqat <b>DEMO</b>. Tasdiqlangandan so‘ng to‘liq slayd tayyorlanadi."
+    )
+
+    bot.send_message(
+        user_id,
+        demo_text,
+        reply_markup=confirm_menu()
+    )
+
+# ================== DEMO CONFIRM ==================
+@bot.message_handler(func=lambda m: user_state.get(m.chat.id) == WAIT_DEMO_CONFIRM)
+def slide_confirm(message):
+    user_id = message.chat.id
+    text = message.text
+
+    if text == "✅ Tasdiqlash":
+        bot.send_message(
+            user_id,
+            "💳 Keyingi bosqichda to‘lov va slayd dizayni tanlanadi.\n\n"
+            "⏳ Tez orada ishga tushadi.",
+            reply_markup=main_menu()
+        )
+        user_state[user_id] = None
+
+    elif text == "✏️ Tahrirlash":
+        user_state[user_id] = WAIT_SLIDE_TOPIC
+        bot.send_message(
+            user_id,
+            "✏️ Yangi mavzuni kiriting:",
+            reply_markup=telebot.types.ReplyKeyboardRemove()
+        )
+
+    elif text == "❌ Bekor qilish":
+        user_state[user_id] = None
+        bot.send_message(
+            user_id,
+            "❌ Buyurtma bekor qilindi.",
+            reply_markup=main_menu()
+        )
+
+    else:
+        bot.send_message(user_id, "Iltimos, tugmalardan foydalaning.")
+
+Bekzod, [01.02.2026 1:32]
+# ================== OTHER ==================
+@bot.message_handler(func=lambda m: True)
+def other(message):
+    bot.send_message(
+        message.chat.id,
+        "❗️ Iltimos, menyudan foydalaning.",
+        reply_markup=main_menu()
+    )
+
+# ================== RUN ==================
+print("Bot started (SLAYD DEMO)")
+bot.infinity_polling()
