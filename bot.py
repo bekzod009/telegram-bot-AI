@@ -1,4 +1,3 @@
-Bekzod, [02.02.2026 1:13]
 import os
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
@@ -137,8 +136,6 @@ def help_handler(message):
         "3️⃣ Natijani oling",
         reply_markup=main_menu()
     )
-
-Bekzod, [02.02.2026 1:13]
 # ================== FALLBACK ==================
 @bot.message_handler(func=lambda m: True)
 def fallback_handler(message):
@@ -147,7 +144,6 @@ def fallback_handler(message):
         "❗ Iltimos, menyudan foydalaning.",
         reply_markup=main_menu()
     )
-
 # ================== RUN ==================
 print("Bot PRO rejimda ishga tushdi")
 bot.infinity_polling(skip_pending=True)
