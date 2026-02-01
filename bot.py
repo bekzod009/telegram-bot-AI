@@ -1,162 +1,166 @@
+Bekzod, [02.02.2026 1:05]
 import os
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 
-# ================== TOKEN ==================
-TOKEN = os.getenv("BOT_TOKEN")
-if not TOKEN:
-    raise RuntimeError("BOT_TOKEN topilmadi. Render Environment Variables ni tekshir.")
+# ================== CONFIG ==================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN topilmadi. Render Environment ni tekshir.")
 
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
-# ================== MENULAR ==================
+# ================== STATES ==================
+STATE_NONE = "NONE"
+STATE_TOPIC = "TOPIC"
+
+user_state = {}
+user_data = {}
+
+# ================== KEYBOARDS ==================
 def main_menu():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.row(
+    kb.add(
         KeyboardButton("📊 Slayd"),
-        KeyboardButton("📚 Referat / Mustaqil ish")
+        KeyboardButton("📚 Referat / Mustaqil ish"),
     )
-    kb.row(
-        KeyboardButton("🧩 Test tuzish"),
-        KeyboardButton("🧩 Krossvord")
+    kb.add(
+        KeyboardButton("🧪 Test tuzish"),
+        KeyboardButton("🧩 Krossvord"),
     )
-    kb.row(
+    kb.add(
         KeyboardButton("💰 Balans"),
-        KeyboardButton("🎁 Referal")
+        KeyboardButton("🎁 Referal"),
     )
-    kb.row(
-        KeyboardButton("ℹ️ Qo'llanma"),
-        KeyboardButton("⚙️ Sozlamalar")
-    )
+    kb.add(KeyboardButton("ℹ️ Qo'llanma"))
     return kb
 
+# ================== HELPERS ==================
+def set_state(user_id, state):
+    user_state[user_id] = state
 
-def language_menu():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    kb.row(
-        KeyboardButton("🇺🇿 O'zbekcha"),
-        KeyboardButton("🇷🇺 Русский")
-    )
-    return kb
+def get_state(user_id):
+    return user_state.get(user_id, STATE_NONE)
 
+def reset_user(user_id):
+    user_state[user_id] = STATE_NONE
+    user_data.pop(user_id, None)
 
-# ================== START ==================
+# ================== COMMANDS ==================
 @bot.message_handler(commands=["start"])
 def start(message):
+    user_id = message.from_user.id
+    reset_user(user_id)
+
     bot.send_message(
         message.chat.id,
-        "👋 <b>Xush kelibsiz!</b>\n\n"
-        "Avval tilni tanlang:",
-        reply_markup=language_menu()
+        "👋 <b>Assalomu alaykum!</b>\n\n"
+        "Quyidagi xizmatlardan birini tanlang:",
+        reply_markup=main_menu()
     )
-
-
-# ================== LANGUAGE ==================
-@bot.message_handler(func=lambda m: m.text in ["🇺🇿 O'zbekcha", "🇷🇺 Русский"])
-def set_language(message):
-    if message.text == "🇺🇿 O'zbekcha":
-        bot.send_message(
-            message.chat.id,
-            "✅ Til o'zbekcha qilindi.\nXizmatni tanlang:",
-            reply_markup=main_menu()
-        )
-    else:
-        bot.send_message(
-            message.chat.id,
-            "✅ Язык установлен: русский.\nВыберите услугу:",
-            reply_markup=main_menu()
-        )
-
 
 # ================== SERVICES ==================
 @bot.message_handler(func=lambda m: m.text == "📊 Slayd")
-def slide_service(message):
+def slayd_service(message):
+    user_id = message.from_user.id
+    user_data[user_id] = {"service": "slayd"}
+    set_state(user_id, STATE_TOPIC)
+
     bot.send_message(
         message.chat.id,
-        "📊 <b>Slayd xizmati</b>\n\nMavzuni yuboring:"
+        "📊 <b>Slayd xizmati</b>\n\n"
+        "Mavzuni to‘liq va aniq yozing:"
     )
-
 
 @bot.message_handler(func=lambda m: m.text == "📚 Referat / Mustaqil ish")
 def referat_service(message):
+    user_id = message.from_user.id
+    user_data[user_id] = {"service": "referat"}
+    set_state(user_id, STATE_TOPIC)
+
     bot.send_message(
         message.chat.id,
-        "📚 <b>Referat / Mustaqil ish</b>\n\nMavzuni aniq qilib yozing:"
+        "📚 <b>Referat / Mustaqil ish</b>\n\n"
+        "Mavzuni to‘liq va aniq yozing:"
     )
 
-
-@bot.message_handler(func=lambda m: m.text == "🧩 Test tuzish")
+@bot.message_handler(func=lambda m: m.text == "🧪 Test tuzish")
 def test_service(message):
     bot.send_message(
         message.chat.id,
-        "🧩 <b>Test tuzish</b>\n\nMavzuni yuboring:"
+        "🧪 Test tuzish xizmati\n\nTez orada ishga tushadi.",
+        reply_markup=main_menu()
     )
-
 
 @bot.message_handler(func=lambda m: m.text == "🧩 Krossvord")
 def crossword_service(message):
     bot.send_message(
         message.chat.id,
-        "🧩 <b>Krossvord</b>\n\nMavzuni yuboring:"
-    )
-
-
-# ================== OTHER ==================
-@bot.message_handler(func=lambda m: m.text == "💰 Balans")
-def balance(message):
-    bot.send_message(
-        message.chat.id,
-        "💰 Balans: <b>0 so'm</b>\n(Bonus va to'lov keyin qo'shiladi)",
+        "🧩 Krossvord yaratish\n\nTez orada ishga tushadi.",
         reply_markup=main_menu()
     )
 
-
-@bot.message_handler(func=lambda m: m.text == "🎁 Referal")
-def referral(message):
-    bot.send_message(
-        message.chat.id,
-        "🎁 Referal tizimi tez orada faollashadi.",
-        reply_markup=main_menu()
-    )
-
-
+# ================== INFO ==================
 @bot.message_handler(func=lambda m: m.text == "ℹ️ Qo'llanma")
 def help_menu(message):
     bot.send_message(
         message.chat.id,
         "ℹ️ <b>Qo'llanma</b>\n\n"
         "1️⃣ Xizmat tanlang\n"
-        "2️⃣ Mavzuni yozing\n"
+        "2️⃣ Mavzu yozing\n"
         "3️⃣ Natijani oling",
         reply_markup=main_menu()
     )
 
-
-@bot.message_handler(func=lambda m: m.text == "⚙️ Sozlamalar")
-def settings(message):
+@bot.message_handler(func=lambda m: m.text == "💰 Balans")
+def balance(message):
     bot.send_message(
         message.chat.id,
-        "⚙️ Sozlamalar hozircha mavjud emas.",
+        "💰 Balans: <b>0 so'm</b>\n\n(To‘lovlar keyin ulanadi)",
+        reply_markup=main_menu()
+    )
+
+@bot.message_handler(func=lambda m: m.text == "🎁 Referal")
+def referral(message):
+    bot.send_message(
+        message.chat.id,
+        "🎁 Referal tizimi\n\nTez orada faollashadi.",
         reply_markup=main_menu()
     )
 
 # ================== TOPIC HANDLER ==================
-@bot.message_handler(func=lambda m: True)
+@bot.message_handler(func=lambda m: get_state(m.from_user.id) == STATE_TOPIC)
 def handle_topic(message):
-    text = message.text.strip()
+    user_id = message.from_user.id
+    topic = message.text.strip()
 
-    bot.send_message(
+    if len(topic) < 5:
+        bot.send_message(message.chat.id, "❗️ Mavzu juda qisqa. Qayta yozing:")
+        return
+
+    service = user_data[user_id]["service"]
+
+Bekzod, [02.02.2026 1:05]
+bot.send_message(
         message.chat.id,
         "✅ <b>Mavzu qabul qilindi!</b>\n\n"
-        f"📌 <b>Mavzu:</b> {text}\n\n"
-        "Keyingi bosqichlarda:\n"
-        "• hajm\n"
-        "• til\n"
-        "• format (PDF / matn)\n"
-        "tanlanadi.\n\n"
-        "⏳ Davom etamiz...",
+        f"🛠 Xizmat: <b>{service}</b>\n"
+        f"📌 Mavzu: <b>{topic}</b>\n\n"
+        "Keyingi bosqichlar tez orada qo‘shiladi.",
         reply_markup=main_menu()
     )
+
+    reset_user(user_id)
+
+# ================== FALLBACK ==================
+@bot.message_handler(func=lambda m: True)
+def fallback(message):
+    bot.send_message(
+        message.chat.id,
+        "❗️ Iltimos, menyudan foydalaning.",
+        reply_markup=main_menu()
+    )
+
 # ================== RUN ==================
-print("Bot started successfully")
-bot.infinity_polling()
+print("Bot started (PRO)")
+bot.infinity_polling(skip_pending=True)
