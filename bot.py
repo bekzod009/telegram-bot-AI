@@ -1,171 +1,110 @@
-
 import os
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 from openai import OpenAI
 
-# ================= TOKEN =================
+# === ENV ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN topilmadi (Render env)")
-if not OPENAI_API_KEY:
-    raise RuntimeError("OPENAI_API_KEY topilmadi (Render env)")
+if not BOT_TOKEN or not OPENAI_API_KEY:
+    raise RuntimeError("ENV o‘zgaruvchilar yetishmayapti")
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ================= STATE =================
-STATE_NONE = "NONE"
-STATE_REFERAT = "REFERAT"
-STATE_SLAYD = "SLAYD"
-STATE_KURS = "KURS"
-
+# === USER STATES ===
 user_state = {}
 
-def set_state(uid, state):
-    user_state[uid] = state
-
-def get_state(uid):
-    return user_state.get(uid, STATE_NONE)
-
-# ================= MENU =================
+# === MENYU ===
 def main_menu():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(
         KeyboardButton("📄 Referat"),
-        KeyboardButton("📊 Slayd"),
-        KeyboardButton("🎓 Kurs ishi")
+        KeyboardButton("📝 Mustaqil ish"),
     )
-    kb.add(KeyboardButton("ℹ️ Qo'llanma"))
+    kb.add(
+        KeyboardButton("📘 Kurs ishi"),
+        KeyboardButton("📊 Slayd"),
+    )
     return kb
 
-# ================= AI =================
-def ai_generate(prompt: str) -> str:
-    try:
-        r = client.responses.create(
-            model="gpt-5.2",
-            input=prompt
-        )
-        return r.output_text.strip()
-    except Exception as e:
-        return f"❌ AI xatosi: {e}"
-
-# ================= START =================
+# === START ===
 @bot.message_handler(commands=["start"])
-def start(message):
-    set_state(message.from_user.id, STATE_NONE)
+def start(msg):
+    user_state[msg.chat.id] = {}
     bot.send_message(
-        message.chat.id,
-        "👋 <b>Salom!</b>\n\n"
-        "AI yordamida:\n"
-        "📄 Referat\n"
-        "📊 Slayd\n"
-        "🎓 Kurs ishi\n\n"
-        "yaratishingiz mumkin.",
+        msg.chat.id,
+        "👋 <b>Xush kelibsiz!</b>\n\n"
+        "Quyidagi xizmatlardan birini tanlang:",
         reply_markup=main_menu()
     )
 
-# ================= REFERAT =================
-@bot.message_handler(func=lambda m: m.text == "📄 Referat")
-def referat_start(message):
-    set_state(message.from_user.id, STATE_REFERAT)
-    bot.send_message(message.chat.id, "✍️ Referat mavzusini yozing:")
-
-# ================= SLAYD =================
-@bot.message_handler(func=lambda m: m.text == "📊 Slayd")
-def slayd_start(message):
-    set_state(message.from_user.id, STATE_SLAYD)
+# === XIZMAT TANLASH ===
+@bot.message_handler(func=lambda m: m.text in [
+    "📄 Referat",
+    "📝 Mustaqil ish",
+    "📘 Kurs ishi",
+    "📊 Slayd"
+])
+def choose_service(msg):
+    user_state[msg.chat.id] = {
+        "service": msg.text,
+        "step": "waiting_topic"
+    }
     bot.send_message(
-        message.chat.id,
-        "📊 Slayd mavzusini yozing:\n\n"
-        "Masalan: <i>O'zbekiston iqtisodiyoti</i>"
+        msg.chat.id,
+        f"✅ <b>{msg.text}</b> tanlandi.\n\n"
+        "✍️ Endi mavzuni yozing:"
     )
 
-# ================= KURS ISHI =================
-@bot.message_handler(func=lambda m: m.text == "🎓 Kurs ishi")
-def kurs_start(message):
-    set_state(message.from_user.id, STATE_KURS)
-    bot.send_message(
-        message.chat.id,
-        "🎓 Kurs ishi mavzusini yozing:"
-    )
+# === MAVZU QABUL QILISH ===
+@bot.message_handler(func=lambda m: user_state.get(m.chat.id, {}).get("step") == "waiting_topic")
+def handle_topic(msg):
+    service = user_state[msg.chat.id]["service"]
+    topic = msg.text
 
-# ================= TEXT HANDLER =================
-@bot.message_handler(func=lambda m: get_state(m.from_user.id) != STATE_NONE)
-def handle_text(message):
-    uid = message.from_user.id
-    text = message.text.strip()
+    bot.send_message(msg.chat.id, "⏳ AI ishlayapti, iltimos kuting...")
 
-    bot.send_message(message.chat.id, "⏳ AI ishlayapti, kuting...")
+    prompt = f"""
+Siz professional ta'lim kontent yaratuvchisiz.
 
-    if get_state(uid) == STATE_REFERAT:
-        prompt = f"""
-Akademik uslubda referat yoz.
-Til: O'zbek
-Hajm: o'rtacha
+Xizmat turi: {service}
+Mavzu: {topic}
 
-Mavzu:
-{text}
+Iltimos:
+- rasmiy
+- tushunarli
+- mantiqiy tuzilgan
+matn tayyorlang.
 """
 
-    elif get_state(uid) == STATE_SLAYD:
-        prompt = f"""
-PowerPoint slayd uchun MATN tayyorla.
-10 slayd bo'lsin.
-Har bir slayd uchun sarlavha va qisqa punktlar yoz.
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Siz ta'lim uchun kontent tayyorlaysiz."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=900
+        )
 
-Mavzu:
-{text}
-"""
+        result = response.choices[0].message.content
+        bot.send_message(msg.chat.id, result)
 
-    elif get_state(uid) == STATE_KURS:
-        prompt = f"""
-Kurs ishi yoz.
-Struktura:
-- Kirish
-- Asosiy qism (2 bo'lim)
-- Xulosa
-- Foydalanilgan adabiyotlar
+        # holatni tozalaymiz
+        user_state[msg.chat.id] = {}
 
-Til: O'zbek
-Akademik uslub.
+    except Exception as e:
+        bot.send_message(msg.chat.id, f"❌ Xatolik: {e}")
 
-Mavzu:
-{text}
-"""
-
-    else:
-        return
-
-    result = ai_generate(prompt)
-    bot.send_message(message.chat.id, result)
-    set_state(uid, STATE_NONE)
-
-# ================= HELP =================
-@bot.message_handler(func=lambda m: m.text == "ℹ️ Qo'llanma")
-def help_menu(message):
-    bot.send_message(
-        message.chat.id,
-        "📘 <b>Qo'llanma</b>\n\n"
-        "1️⃣ Xizmat tanlang\n"
-        "2️⃣ Mavzu yozing\n"
-        "3️⃣ AI natijani beradi\n\n"
-        "📌 Slayd – matn shaklida\n"
-        "📌 Kurs ishi – to‘liq struktura",
-        reply_markup=main_menu()
-    )
-
-# ================= FALLBACK =================
+# === DEFAULT ===
 @bot.message_handler(func=lambda m: True)
-def fallback(message):
+def fallback(msg):
     bot.send_message(
-        message.chat.id,
-        "❗ Menyudan foydalaning.",
-        reply_markup=main_menu()
+        msg.chat.id,
+        "❗ Iltimos, menyudan xizmat tanlang yoki /start ni bosing."
     )
 
-# ================= RUN =================
-print("🚀 Bot PRO + AI ishlayapti")
+# === RUN ===
 bot.infinity_polling(skip_pending=True)
